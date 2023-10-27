@@ -298,8 +298,9 @@ def find_src(my_str):
        return
 def polling():
     global polledData
-    DTI=':0x1c :0x1d :! :\" :# :$ :% :& :\' :( :) :* :+ :, :- :. :/ :0-9 :: :; :< := :> :? :@ :A-S :T :U-Z :[ :\\ :] :^ :_ :‘ :a-z :{ :| :} :~'
+    #DTI=':0x1c :0x1d :! :\" :# :$ :% :& :\' :( :) :* :+ :, :- :. :/ :0-9 :: :; :< := :> :? :@ :A-S :T :U-Z :[ :\\ :] :^ :_ :‘ :a-z :{ :| :} :~'
     #DTI=r""":0x1c :0x1d :! :" :# :$ :% :& :' :( :) :* :+ :, :- :. :/ :0-9 :: :; :< := :> :? :@ :A-S :T :U-Z :[ :\ :] :^ :_ :‘ :a-z :{ :| :} :~ """
+    DTI=':! :/ :< := :> :; :} :{'
     while not stop_event.is_set():
         try:
             polledData = s.recv(1024)
@@ -382,6 +383,7 @@ def polling():
                 decode_sframe(ctrl, frame, pos)
             elif (ctrl & 0x1) == 0x0:
                 decode_iframe(ctrl, frame, pos)
+            time.sleep(1)  # Sleep for 1 second to reduce CPU usage
 
         else:
             pass
@@ -401,6 +403,8 @@ def sendbcn():
             _w1.Text1.insert('1.0', dtime() + "Beacon Interval: " + str(bcnInterval)  + "\n")
             s.sendall(s_strbcn)
             old_t=time.time()
+        time.sleep(1)  # Sleep for 1 second to reduce CPU usage
+
 def dtime():
     now = datetime.now()
     s1 = now.strftime("%m/%d/%Y, %H:%M:%S")
