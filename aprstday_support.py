@@ -28,6 +28,8 @@ import aprstday
 _debug = True # False to eliminate debug printing from callback functions.
 msgid_list = ['5859', '595A', '5253', '4D4E', '4B4A']
 my_bcn="c000A0B29692A6A6e0b288608486b06eae92888a62406303f021303631302e3834532f31303635312e3639452d594430424358277320415052532076696120505954484f4ec0"
+s_ipv4 = ''
+s_port = 8001
 s_strbcn = ''
 s_strack = ''
 s_strmsg = ''
@@ -72,6 +74,7 @@ def Connect(*args):
     #    for arg in args:
     #        print ('    another arg:', arg)
     #    sys.stdout.flush()
+    global s_ipv4, s_port
     try:
         s_ipv4 = str(ipaddress.ip_address(_w1.TextKissIp.get("1.0",'end-1c')))
     except ValueError:
@@ -124,54 +127,9 @@ def SendMesg(*args):
     #    for arg in args:
     #        print ('    another arg:', arg)
     #    sys.stdout.flush()
-    global s, connected, s_strbcn, call_src, call_dst, ssid_src, ssid_dst, s_strmsg
+    global s, connected, s_strbcn, call_src, call_dst, ssid_src, ssid_dst, s_strmsg, s_ipv4, s_port
     # srcarg = call_src
     # dstarg = call_dst
-    if _w1.TextBeacon.get("1.0",'end-1c'):
-        srcarg = "YD0BCX-7"
-        dstarg = "PYKISS"
-        uitxt = _w1.TextBeacon.get("1.0",'end-1c')
-        if srcarg.find('-') != -1:
-            srcarg = srcarg.split("-")
-            call_src = srcarg[0]
-            ssid_src = srcarg[1]
-        else:
-            call_src = call_src
-            ssid_src = "40"
-        if dstarg.find('-') != -1:
-            dstarg = dstarg.split("-")
-            call_dst = dstarg[0]
-            ssid_dst = dstarg[1]
-        else:
-            call_dst = call_dst
-            ssid_dst = "E0"
-        if dstarg:
-            if ssid_src != "40":
-                decimal_value_src = int(ssid_src)
-                hexadecimal_value_src = decimal_to_hex(decimal_value_src)
-                encoded_ssid_src = hexadecimal_value_src[2:]
-            else:
-                encoded_ssid_src  = "40"
-            if ssid_dst != "E0":
-                decimal_value_dst = int(ssid_dst)
-                hexadecimal_value_dst = decimal_to_hex(decimal_value_dst)
-                encoded_ssid_dst = hexadecimal_value_dst[2:]
-            else:
-                encoded_ssid_dst = "E0"
-
-        encoded_src = encode_addr(call_src)
-        encoded_dst = encode_addr(call_dst)
-        uiframe = decode_8bit_txt(uitxt)
-        complete_frame = kiss_preamble.upper() + encoded_dst.upper() + encoded_ssid_dst.upper() + encoded_src.upper() + encoded_ssid_src.upper() + pathctrlpid.upper() + uiframe.upper() + "C0"
-        _w1.Text1.insert('1.0', dtime() + complete_frame + "\n")
-        s_strbcn=bytes.fromhex(complete_frame)
-        try:
-            s.sendall(s_strbcn)
-        except:
-            s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-            s.sendall(s_strbcn)
-            connected = "yes"
-        return
     if _w1.TextMessages.get("1.0",'end-1c'):
         srcarg = "YD0BCX-7"
         dstarg = "PYKISS"
@@ -213,11 +171,19 @@ def SendMesg(*args):
         s_strmsg=bytes.fromhex(complete_frame)
         try:
             s.sendall(s_strmsg)
-        except:
-            s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-            s.sendall(s_strmsg)
-            connected = "yes"
-        return
+        except socket.error as e:
+            if e:
+                try:
+                    s.shutdown(socket.SHUT_RDWR)  # Shutdown the socket
+                except socket.error:
+                    pass  # Ignore any errors during shutdown
+                s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                s.connect((s_ipv4, s_port))
+                s.sendall(s_strmsg)
+                connected = "yes"
+            else:
+                pass
+    return
 
 decimal_to_hex_map = {
     0: '0x60', 1: '0x62', 2: '0x64', 3: '0x66',
@@ -310,7 +276,7 @@ def find_src(my_str):
     else:
        return
 def polling():
-    global s, connected, polledData, s_strbcn, s_strack
+    global s, connected, polledData, s_strbcn, s_strack, s_ipv4, s_port
     DTI=':! :/ :< := :> :; :} :{'
     while not stop_event.is_set():
         try:
@@ -390,10 +356,18 @@ def polling():
                         _w1.Text1.insert('1.0', dtime() + "Send ACK: :" +  src_addressack + ackd + "\n")
                         try:
                             s.sendall(s_strack)
-                        except:
-                            s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-                            s.sendall(s_strack)
-                            connected = "yes"
+                        except socket.error as e:
+                            if e:
+                                try:
+                                    s.shutdown(socket.SHUT_RDWR)  # Shutdown the socket
+                                except socket.error:
+                                    pass  # Ignore any errors during shutdown
+                                s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                                s.connect((s_ipv4, s_port))
+                                s.sendall(s_strack)
+                                connected = "yes"
+                            else:
+                                pass
 
             elif (ctrl & 0x3) == 0x1:
                 decode_sframe(ctrl, frame, pos)
@@ -405,7 +379,7 @@ def polling():
             pass
 
 def sendbcn():
-    global s, connected, s_strbcn
+    global s, connected, s_strbcn, s_ipv4, s_port
     old_t=time.time()
     while not stop_event.is_set():
         bcnInterval = _w1.TextBeaconInterval.get("1.0",'end-1c')
@@ -420,10 +394,18 @@ def sendbcn():
             _w1.Text1.insert('1.0', dtime() + "Beacon Interval: " + str(bcnInterval)  + "\n")
             try:
                 s.sendall(s_strbcn)
-            except:
-                s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-                s.sendall(s_strbcn)
-                connected = "yes"
+            except socket.error as e:
+                if e:
+                    try:
+                        s.shutdown(socket.SHUT_RDWR)  # Shutdown the socket
+                    except socket.error:
+                        pass  # Ignore any errors during shutdown
+                    s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                    s.connect((s_ipv4, s_port))
+                    s.sendall(s_strbcn)
+                    connected = "yes"
+                else:
+                    pass
             old_t=time.time()
         time.sleep(1)  # Sleep for 1 second to reduce CPU usage
 
