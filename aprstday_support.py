@@ -28,6 +28,9 @@ import aprstday
 _debug = True # False to eliminate debug printing from callback functions.
 msgid_list = ['5859', '595A', '5253', '4D4E', '4B4A']
 my_bcn="c000A0B29692A6A6e0b288608486b06eae92888a62406303f021303631302e3834532f31303635312e3639452d594430424358277320415052532076696120505954484f4ec0"
+s_strbcn = ''
+s_strack = ''
+s_strmsg = ''
 connected = "no"
 s = socket.socket()
 polledData = ''
@@ -121,7 +124,7 @@ def SendMesg(*args):
     #    for arg in args:
     #        print ('    another arg:', arg)
     #    sys.stdout.flush()
-    global call_src, call_dst, ssid_src, ssid_dst
+    global s, connected, s_strbcn, call_src, call_dst, ssid_src, ssid_dst, s_strmsg
     # srcarg = call_src
     # dstarg = call_dst
     if _w1.TextBeacon.get("1.0",'end-1c'):
@@ -162,7 +165,12 @@ def SendMesg(*args):
         complete_frame = kiss_preamble.upper() + encoded_dst.upper() + encoded_ssid_dst.upper() + encoded_src.upper() + encoded_ssid_src.upper() + pathctrlpid.upper() + uiframe.upper() + "C0"
         _w1.Text1.insert('1.0', dtime() + complete_frame + "\n")
         s_strbcn=bytes.fromhex(complete_frame)
-        s.sendall(s_strbcn)
+        try:
+            s.sendall(s_strbcn)
+        except:
+            s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+            s.sendall(s_strbcn)
+            connected = "yes"
         return
     if _w1.TextMessages.get("1.0",'end-1c'):
         srcarg = "YD0BCX-7"
@@ -202,8 +210,13 @@ def SendMesg(*args):
         uiframe = decode_8bit_txt(uitxt)
         complete_frame = kiss_preamble.upper() + encoded_dst.upper() + encoded_ssid_dst.upper() + encoded_src.upper() + encoded_ssid_src.upper() + pathctrlpid.upper() + uiframe.upper() + "7B"+ msgid.upper() + "7DC0"
         _w1.Text1.insert('1.0', dtime() + complete_frame + "\n")
-        s_msg=bytes.fromhex(complete_frame)
-        s.sendall(s_msg)
+        s_strmsg=bytes.fromhex(complete_frame)
+        try:
+            s.sendall(s_strmsg)
+        except:
+            s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+            s.sendall(s_strmsg)
+            connected = "yes"
         return
 
 decimal_to_hex_map = {
@@ -297,9 +310,7 @@ def find_src(my_str):
     else:
        return
 def polling():
-    global polledData
-    #DTI=':0x1c :0x1d :! :\" :# :$ :% :& :\' :( :) :* :+ :, :- :. :/ :0-9 :: :; :< := :> :? :@ :A-S :T :U-Z :[ :\\ :] :^ :_ :‘ :a-z :{ :| :} :~'
-    #DTI=r""":0x1c :0x1d :! :" :# :$ :% :& :' :( :) :* :+ :, :- :. :/ :0-9 :: :; :< := :> :? :@ :A-S :T :U-Z :[ :\ :] :^ :_ :‘ :a-z :{ :| :} :~ """
+    global s, connected, polledData, s_strbcn, s_strack
     DTI=':! :/ :< := :> :; :} :{'
     while not stop_event.is_set():
         try:
@@ -377,7 +388,12 @@ def polling():
                         srcaddr=src_addressack.encode("utf-8").hex()
                         s_strack=bytes.fromhex("c000A0B29692A6A6e0b288608486b06eae92888a62406303f03A" + srcaddr + strack + "C0")
                         _w1.Text1.insert('1.0', dtime() + "Send ACK: :" +  src_addressack + ackd + "\n")
-                        s.sendall(s_strack)
+                        try:
+                            s.sendall(s_strack)
+                        except:
+                            s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                            s.sendall(s_strack)
+                            connected = "yes"
 
             elif (ctrl & 0x3) == 0x1:
                 decode_sframe(ctrl, frame, pos)
@@ -389,6 +405,7 @@ def polling():
             pass
 
 def sendbcn():
+    global s, connected, s_strbcn
     old_t=time.time()
     while not stop_event.is_set():
         bcnInterval = _w1.TextBeaconInterval.get("1.0",'end-1c')
@@ -401,7 +418,12 @@ def sendbcn():
             s_strbcn=bytes.fromhex(my_bcn)
             _w1.Text1.insert('1.0', dtime() + "beacon position: " +  binascii.unhexlify("21303631302e3834532f31303635312e3639452d594430424358277320415052532076696120505954484f4e").decode('utf8') + "\n")
             _w1.Text1.insert('1.0', dtime() + "Beacon Interval: " + str(bcnInterval)  + "\n")
-            s.sendall(s_strbcn)
+            try:
+                s.sendall(s_strbcn)
+            except:
+                s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                s.sendall(s_strbcn)
+                connected = "yes"
             old_t=time.time()
         time.sleep(1)  # Sleep for 1 second to reduce CPU usage
 
