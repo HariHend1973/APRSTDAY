@@ -171,18 +171,11 @@ def SendMesg(*args):
         s_strmsg=bytes.fromhex(complete_frame)
         try:
             s.sendall(s_strmsg)
-        except socket.error as e:
-            if e:
-                try:
-                    s.shutdown(socket.SHUT_RDWR)  # Shutdown the socket
-                except socket.error:
-                    pass  # Ignore any errors during shutdown
-                s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-                s.connect((s_ipv4, s_port))
-                s.sendall(s_strmsg)
-                connected = "yes"
-            else:
-                pass
+        except socket.error:
+            s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+            s.connect((s_ipv4, s_port))
+            s.sendall(s_strmsg)
+            connected = "yes"
     return
 
 decimal_to_hex_map = {
@@ -356,18 +349,11 @@ def polling():
                         _w1.Text1.insert('1.0', dtime() + "Send ACK: :" +  src_addressack + ackd + "\n")
                         try:
                             s.sendall(s_strack)
-                        except socket.error as e:
-                            if e:
-                                try:
-                                    s.shutdown(socket.SHUT_RDWR)  # Shutdown the socket
-                                except socket.error:
-                                    pass  # Ignore any errors during shutdown
-                                s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-                                s.connect((s_ipv4, s_port))
-                                s.sendall(s_strack)
-                                connected = "yes"
-                            else:
-                                pass
+                        except socket.error:
+                            s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                            s.connect((s_ipv4, s_port))
+                            s.sendall(s_strack)
+                            connected = "yes"
 
             elif (ctrl & 0x3) == 0x1:
                 decode_sframe(ctrl, frame, pos)
@@ -394,18 +380,11 @@ def sendbcn():
             _w1.Text1.insert('1.0', dtime() + "Beacon Interval: " + str(bcnInterval)  + "\n")
             try:
                 s.sendall(s_strbcn)
-            except socket.error as e:
-                if e:
-                    try:
-                        s.shutdown(socket.SHUT_RDWR)  # Shutdown the socket
-                    except socket.error:
-                        pass  # Ignore any errors during shutdown
-                    s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
-                    s.connect((s_ipv4, s_port))
-                    s.sendall(s_strbcn)
-                    connected = "yes"
-                else:
-                    pass
+            except socket.error:
+                s = socket.socket(socket.AF_INET,socket.SOCK_STREAM)
+                s.connect((s_ipv4, s_port))
+                s.sendall(s_strbcn)
+                connected = "yes"
             old_t=time.time()
         time.sleep(1)  # Sleep for 1 second to reduce CPU usage
 
